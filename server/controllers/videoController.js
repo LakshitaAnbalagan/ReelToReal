@@ -1,0 +1,11 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createVideo, getVideo, listVideos, removeVideo, updateVideo } from '../services/videoStore.js';
+import { understandVideo } from '../services/understandingService.js';
+
+export async function list(req, res, next) { try { res.json(await listVideos(req.query.category ? { category: req.query.category } : {})); } catch (error) { next(error); } }
+export async function get(req, res, next) { try { const video = await getVideo(req.params.id); if (!video) return res.status(404).json({ message: 'Saved video not found.' }); res.json(video); } catch (error) { next(error); } }
+export async function upload(req, res, next) { try { if (!req.file) return res.status(400).json({ message: 'Please upload an MP4, MOV, or WebM file.' }); const video = await createVideo({ fileUrl: `/uploads/${req.file.filename}`, title: path.parse(req.file.originalname).name, processingStatus: 'UPLOADED' }); res.status(201).json(video); } catch (error) { next(error); } }
+export async function fromUrl(req, res, next) { try { const { url } = req.body; try { new URL(url); } catch { return res.status(400).json({ message: 'Please enter a valid video URL.' }); } const video = await createVideo({ sourceUrl: url, title: 'Saved video link', processingStatus: 'UPLOADED' }); res.status(201).json(video); } catch (error) { next(error); } }
+export async function process(req, res, next) { try { const video = await getVideo(req.params.id); if (!video) return res.status(404).json({ message: 'Saved video not found.' }); await updateVideo(video._id, { processingStatus: 'PROCESSING' }); const uploadsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads'); const filePath = video.fileUrl ? path.join(uploadsDir, path.basename(video.fileUrl)) : null; const analysis = await understandVideo({ filePath, sourceUrl: video.sourceUrl }); const completed = await updateVideo(video._id, { ...analysis, processingStatus: 'COMPLETED' }); res.json(completed); } catch (error) { try { await updateVideo(req.params.id, { processingStatus: 'FAILED' }); } catch {} next(error); } }
+export async function destroy(req, res, next) { try { const deleted = await removeVideo(req.params.id); if (!deleted) return res.status(404).json({ message: 'Saved video not found.' }); res.status(204).end(); } catch (error) { next(error); } }

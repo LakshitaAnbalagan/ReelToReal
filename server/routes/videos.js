@@ -1,0 +1,4 @@
+import { Router } from 'express'; import multer from 'multer'; import path from 'path'; import { fileURLToPath } from 'url';
+import * as controller from '../controllers/videoController.js';
+const currentDir = path.dirname(fileURLToPath(import.meta.url)); const upload = multer({ dest: path.resolve(currentDir, '../uploads'), limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: (_req, file, done) => done(null, ['video/mp4', 'video/quicktime', 'video/webm'].includes(file.mimetype)) });
+const router = Router(); router.get('/', controller.list); router.post('/upload', upload.single('video'), controller.upload); router.post('/url', controller.fromUrl); router.get('/:id', controller.get); router.post('/:id/process', controller.process); router.delete('/:id', controller.destroy); export default router;

@@ -1,0 +1,1 @@
+import { NavLink } from 'react-router-dom'; export default function Nav() { return <header><NavLink className="brand" to="/">REEL<span>TO</span>REAL<i>✦</i></NavLink><nav><NavLink to="/library">Library</NavLink><NavLink to="/add">Add video</NavLink><NavLink to="/plan">Plan</NavLink></nav><NavLink className="nav-cta" to="/add">Save a Reel <b>→</b></NavLink></header>; }
