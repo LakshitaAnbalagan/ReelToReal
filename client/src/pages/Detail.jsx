@@ -19,12 +19,11 @@ export default function Detail() {
       </Link>
       <div className="detail-hero">
         {video.thumbnail ? (
-          <img src={video.thumbnail} alt={video.title} className="detail-thumb" style={{ width: '220px', height: '220px', objectFit: 'cover', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', flexShrink: 0 }} />
+          <img src={video.thumbnail} alt={video.title} className="detail-thumb" style={{ width: '220px', height: '220px', objectFit: 'cover', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', flexShrink: 0 }} onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} />
         ) : (
           <div className="detail-art">{video.category === 'Travel' ? '◒' : '✦'}</div>
         )}
         <div>
-
           <div className="eyebrow">{video.isDemo ? 'DEMO MEMORY · ' : ''}{video.category}</div>
           <h1>{video.title}</h1>
           <p className="lead">{video.summary}</p>
@@ -64,11 +63,12 @@ export default function Detail() {
               <h2>Analyzed Video Keyframes ({video.keyframes.length} snapshots)</h2>
               <div className="keyframes-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 {video.keyframes.map((src, i) => (
-                  <img key={i} src={src} alt={`Frame ${i + 1}`} style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e0e0e0' }} />
+                  <img key={i} src={src} alt={`Frame ${i + 1}`} style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e0e0e0' }} onError={(e) => { e.target.style.opacity = '0.3'; }} />
                 ))}
               </div>
             </>
           )}
+
 
 
 
