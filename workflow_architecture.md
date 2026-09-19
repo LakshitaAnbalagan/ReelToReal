@@ -119,7 +119,10 @@ When a user asks: *"Plan a Saturday dinner for 2 people with Chinese food in Che
    $$\text{Cosine Similarity} = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|}$$
 3. **Keyword Frequency Scoring**: Gives extra weight to matching entity names, cities, dishes, and categories.
 4. **Context Injection**: Top 3 most relevant video memories are formatted into a RAG context prompt.
-5. **AI Plan Generation**: Gemini synthesizes a multi-step structured plan complete with timing, estimated costs, and **source citations**.
+5. **Interactive Conversational AI Agent (`chatWithPlanner`)**:
+   * **Ambiguity Detection**: Evaluates if user prompt is underspecified (e.g. "plan a trip" without city/duration).
+   * **Smart Clarification**: Asks 1-2 focused, friendly clarifying questions before creating the plan.
+   * **Multi-Step Action Plan**: Synthesizes a clean, structured plan with timing, activities, and cost estimates.
 
 ---
 
@@ -153,11 +156,16 @@ To guarantee data is never lost when refreshing the page (`F5`) or restarting th
   * Accounts stored in MongoDB / disk (`users.json`).
   * Supports Sign-In, Account Creation, and **1-Click Demo Login (`Lakshita Anbalagan`)**.
   * Stores user token in `localStorage` and updates header profile navigation pill in real-time.
-* **Pages**:
+* **Pages & Floating Shortcuts**:
   * `/` (**Home**): Hero introduction & workflow explanation.
   * `/login` (**Login**): Sign-In, Register, and Demo login.
   * `/add` (**Add Reel**): Process public reel URLs or upload MP4 files.
   * `/process/:id` (**Processing**): Real-time AI extraction status tracker.
   * `/library` (**Library**): Filterable video memory grid.
   * `/library/:id` (**Detail**): Displays Extracted Keyframes Photo Gallery, Menu Card OCR Box, Audio Transcript, and Actionable Recommendations.
-  * `/plan` (**Planner**): RAG natural language AI planner with source memory citations.
+  * `/plan` (**Planner**): Original single-query RAG planner interface with step-by-step plan & source retrieval.
+  * `/chat` (**AI Chatbot**): Interactive RAG AI Chatbot with clarifying questions, real-time message history, and quick suggestion chips.
+  * **Floating Corner Shortcut (`✦ Ask AI Chatbot`)**: Floating button fixed in the bottom-right corner of the page (on all pages except Home and Plan pages) for instant chatbot navigation.
+
+
+

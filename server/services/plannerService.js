@@ -138,11 +138,8 @@ Return strictly valid JSON with this exact schema:
   "sources": ["Array of all used video _id strings"]
 }`;
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const fallbackModels = [modelName, 'gemini-2.5-flash', 'gemini-3.6-flash'].filter((v, i, a) => a.indexOf(v) === i);
-
-
-
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const fallbackModels = [modelName, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter((v, i, a) => a.indexOf(v) === i);
 
     for (const model of fallbackModels) {
       try {
@@ -175,5 +172,129 @@ Return strictly valid JSON with this exact schema:
   }
 
   return buildFallbackPlan(query, sources);
+}
+
+export async function chatWithPlanner({ messages, query, videos }) {
+  const lastUserMessage = query || messages?.filter((m) => m.role === 'user').slice(-1)[0]?.content || 'Hello';
+  const fullConversationHistory = (messages || [])
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n');
+
+  const retrievedSources = await retrieve(`${lastUserMessage} ${fullConversationHistory}`, videos);
+
+  if (!process.env.GEMINI_API_KEY) {
+    const fallback = buildFallbackPlan(lastUserMessage, retrievedSources);
+    return {
+      reply: 'Here is a plan built from your saved reel memories!',
+      isClarifying: false,
+      plan: fallback,
+      sourceMemories: retrievedSources
+    };
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const memoryContext = retrievedSources
+      .map(
+        (v, i) => `[Memory #${i + 1} - ID: ${v._id}]
+Title: ${v.title}
+Category: ${v.category} (${v.subcategory || 'General'})
+Summary: ${v.summary}
+Transcript: ${v.transcript || 'None'}
+Visual Analysis: ${v.visualAnalysis || 'None'}
+On-Screen Text/Menu: ${v.onScreenText || 'None'}
+Entities: ${(v.entities || []).map((e) => e.name).join(', ')}
+Locations: ${(v.locations || []).join(', ')}
+Foods/Items: ${(v.foods || []).concat(v.products || []).join(', ')}
+Estimated Price: ${v.price || 'N/A'}
+Actionable Ideas: ${(v.actionableIdeas || []).join('; ')}`
+      )
+      .join('\n\n');
+
+    const promptText = `You are ReelToReal's AI Planning Agent — a friendly, highly intelligent assistant that creates perfect step-by-step plans using ONLY the user's saved video memories from their database.
+
+Conversation History:
+${fullConversationHistory || 'User just started the conversation.'}
+
+Latest User Request: "${lastUserMessage}"
+
+Available Retrieved Video Memories from User Database:
+${memoryContext || 'No matching memories found.'}
+
+INSTRUCTIONS:
+1. EVALUATE CLARITY & SPECIFICITY:
+   - Is the user's request underspecified, vague, or missing essential details needed to build a precise plan? (For example: just saying "plan a trip" without city/duration, or "what to eat" without meal time/dietary preference/location).
+   - IF UNDERSPECIFIED: Set "isClarifying": true. Write a warm, helpful conversational "reply" asking 1-2 specific clarifying questions to gather the missing details before finalizing the plan. Set "plan": null.
+2. IF THE REQUEST IS CLEAR (or the user has answered your questions):
+   - Set "isClarifying": false.
+   - Write a friendly, encouraging conversational "reply" summarizing the plan.
+   - Build a highly accurate, structured "plan" object using the retrieved video memories.
+   - Each step in the plan MUST reference specific dishes, venues, or activities from the memories.
+
+Return strictly valid JSON adhering to this schema:
+{
+  "reply": "Warm conversational response or 1-2 clarifying questions",
+  "isClarifying": boolean,
+  "plan": null OR {
+    "title": "Creative, clear title for the plan",
+    "message": "1-2 sentence overview of the plan",
+    "steps": [
+      {
+        "time": "Suggested time (e.g. 7:30 PM)",
+        "activity": "Specific dish, workout, or activity",
+        "place": "Venue or entity name from the memory",
+        "reason": "Detailed rationale referencing video transcript, menu prices, or visual details",
+        "videoId": "Exact _id string of the video memory used"
+      }
+    ],
+    "sources": ["Array of used video _id strings"]
+  }
+}`;
+
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const fallbackModels = [modelName, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter((v, i, a) => a.indexOf(v) === i);
+
+    for (const model of fallbackModels) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          config: { responseMimeType: 'application/json', temperature: 0.3 }
+        });
+        const parsed = JSON.parse(response.text || '{}');
+        if (parsed?.reply) {
+          return {
+            reply: String(parsed.reply),
+            isClarifying: Boolean(parsed.isClarifying),
+            plan: parsed.plan && Array.isArray(parsed.plan.steps) && parsed.plan.steps.length ? {
+              title: String(parsed.plan.title || 'Personalized Plan'),
+              message: String(parsed.plan.message || 'Built from your saved memories.'),
+              steps: parsed.plan.steps.map((s) => ({
+                time: String(s.time || 'Flex time'),
+                activity: String(s.activity || 'Activity'),
+                place: String(s.place || 'Location'),
+                reason: String(s.reason || 'Based on your saved Reel.'),
+                videoId: String(s.videoId || (retrievedSources[0]?._id || ''))
+              })),
+              sources: Array.isArray(parsed.plan.sources) ? parsed.plan.sources.map(String) : retrievedSources.map((s) => s._id)
+            } : null,
+            sourceMemories: retrievedSources
+          };
+        }
+      } catch (e) {
+        console.warn(`Gemini Chat model ${model} failed, trying next: ${e.message}`);
+      }
+    }
+  } catch (err) {
+    console.error('Gemini Chat planning error:', err);
+  }
+
+  const fallback = buildFallbackPlan(lastUserMessage, retrievedSources);
+  return {
+    reply: 'Here is a custom plan generated from your saved video memories!',
+    isClarifying: false,
+    plan: fallback,
+    sourceMemories: retrievedSources
+  };
 }
 
