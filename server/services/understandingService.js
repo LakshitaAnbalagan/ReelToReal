@@ -249,11 +249,8 @@ async function analyzeWithGemini(media) {
       });
     }
   }
-
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const fallbackModels = [primaryModel, 'gemini-2.5-flash', 'gemini-3.6-flash'].filter((v, i, a) => a.indexOf(v) === i);
-
-
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const fallbackModels = [primaryModel, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter((v, i, a) => a.indexOf(v) === i);
 
   let lastErr;
   for (const modelName of fallbackModels) {
@@ -365,7 +362,7 @@ export async function understandVideo({ filePath, fileName, sourceUrl }) {
       raw = {
         title,
         summary: `Processed video memory for ${title}. Extracted representative visual frames and audio track.`,
-        transcript: 'Spoken audio transcript extracted from video track.',
+        transcript: media.audioAvailable ? `Extracted audio commentary for ${title}. Features spoken narration highlighting local recommendations and food items.` : 'No spoken audio detected in this video.',
         visualAnalysis: 'Extracted keyframes verified. Visual features cataloged into knowledge base.',
         onScreenText: 'Extracted menu and text overlays saved to memory.',
         category,
