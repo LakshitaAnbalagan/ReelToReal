@@ -110,8 +110,8 @@ async function extractMedia(videoPath, tempDir) {
   const audioPath = path.join(tempDir, 'audio.mp3');
   const framePattern = path.join(tempDir, 'frame-%02d.jpg');
 
-  // Extract up to 6 keyframes distributed across the video
-  await runFfmpeg(['-i', videoPath, '-vf', 'fps=1/3,scale=768:-2', '-frames:v', '6', '-q:v', '4', framePattern]);
+  // Extract up to 16 keyframes distributed across the entire video (1 frame every 1.5 seconds)
+  await runFfmpeg(['-i', videoPath, '-vf', 'fps=1/1.5,scale=768:-2', '-frames:v', '16', '-q:v', '4', framePattern]);
 
   let audioAvailable = true;
   try {
@@ -124,20 +124,33 @@ async function extractMedia(videoPath, tempDir) {
   if (!frameNames.length) throw new Error('No readable video frames could be extracted from this upload.');
 
   let thumbnail = '';
+  const gallery = [];
   try {
     const uploadsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads');
     await fsp.mkdir(uploadsDir, { recursive: true });
-    const thumbName = `thumb-${Date.now()}-${path.basename(videoPath, path.extname(videoPath))}.jpg`;
-    const targetThumbPath = path.join(uploadsDir, thumbName);
-    const chosenFrame = frameNames[Math.min(1, frameNames.length - 1)];
-    await fsp.copyFile(path.join(tempDir, chosenFrame), targetThumbPath);
-    thumbnail = `/uploads/${thumbName}`;
+    const timeStamp = Date.now();
+    const baseName = path.basename(videoPath, path.extname(videoPath));
+
+    // Save up to 6 gallery frames for UI display
+    const sampleIndices = Array.from({ length: Math.min(6, frameNames.length) }, (_, i) =>
+      Math.floor((i * (frameNames.length - 1)) / Math.max(1, Math.min(6, frameNames.length) - 1))
+    );
+
+    for (const [idx, frameIdx] of sampleIndices.entries()) {
+      const gName = `gallery-${timeStamp}-${baseName}-${idx + 1}.jpg`;
+      const gPath = path.join(uploadsDir, gName);
+      await fsp.copyFile(path.join(tempDir, frameNames[frameIdx]), gPath);
+      gallery.push(`/uploads/${gName}`);
+    }
+
+    thumbnail = gallery[0] || '';
   } catch (err) {
-    console.warn('Could not save video thumbnail image:', err.message);
+    console.warn('Could not save video thumbnail/gallery images:', err.message);
   }
 
-  return { audioPath, audioAvailable, framePaths: frameNames.map((name) => path.join(tempDir, name)), thumbnail };
+  return { audioPath, audioAvailable, framePaths: frameNames.map((name) => path.join(tempDir, name)), thumbnail, keyframes: gallery };
 }
+
 
 async function withRetry(operation, label) {
   let lastError;
@@ -191,7 +204,9 @@ function normalize(raw) {
     visualAnalysis,
     onScreenText,
     thumbnail: String(raw.thumbnail || ''),
+    keyframes: Array.isArray(raw.keyframes) ? raw.keyframes.map(String) : [],
     category: categories.includes(raw.category) ? raw.category : 'Other',
+
     subcategory: String(raw.subcategory || 'Saved video'),
     tags: asList(raw.tags).slice(0, 10),
     entities: Array.isArray(raw.entities) ? raw.entities.filter((item) => item?.name).slice(0, 10).map((item) => ({ name: String(item.name), type: String(item.type || 'item') })) : [],
@@ -334,8 +349,9 @@ export async function understandVideo({ filePath, fileName, sourceUrl }) {
         actionableIdeas: [`Check out ${baseName}`, 'Save for upcoming plan']
       };
     }
-    return { ...normalize(raw), ...(media.thumbnail ? { thumbnail: media.thumbnail } : {}), ...(savedFileUrl ? { fileUrl: savedFileUrl } : {}) };
+    return { ...normalize(raw), ...(media.thumbnail ? { thumbnail: media.thumbnail } : {}), ...(media.keyframes ? { keyframes: media.keyframes } : {}), ...(savedFileUrl ? { fileUrl: savedFileUrl } : {}) };
   } finally {
+
 
     await fsp.rm(tempDir, { recursive: true, force: true });
   }

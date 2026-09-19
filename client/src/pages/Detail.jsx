@@ -59,6 +59,18 @@ export default function Detail() {
             </>
           )}
 
+          {video.keyframes?.length > 0 && (
+            <>
+              <h2>Analyzed Video Keyframes ({video.keyframes.length} snapshots)</h2>
+              <div className="keyframes-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                {video.keyframes.map((src, i) => (
+                  <img key={i} src={src} alt={`Frame ${i + 1}`} style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e0e0e0' }} />
+                ))}
+              </div>
+            </>
+          )}
+
+
 
           <h2>Spoken Audio Transcript</h2>
           <p className="transcript">“{video.transcript || 'No spoken audio detected.'}”</p>
