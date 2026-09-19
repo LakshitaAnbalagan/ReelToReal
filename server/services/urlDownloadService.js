@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import youtubedl from 'yt-dlp-exec';
 
+import ffmpegPath from 'ffmpeg-static';
+
 const uploadsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads');
 const allowedHosts = new Set(['instagram.com', 'www.instagram.com', 'youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com']);
 
@@ -16,10 +18,32 @@ export async function downloadPublicVideo(sourceUrl) {
   })));
   let downloaderOutput = '';
   try {
-    downloaderOutput = String(await youtubedl(sourceUrl, { noPlaylist: true, noWarnings: true, format: 'mp4/best', output: path.join(uploadsDir, 'url-%(id)s.%(ext)s'), restrictFilenames: true, print: 'after_move:filepath' }));
+    downloaderOutput = String(await youtubedl(sourceUrl, {
+      noPlaylist: true,
+      noWarnings: true,
+      format: 'bestvideo+bestaudio/best',
+      mergeOutputFormat: 'mp4',
+      ffmpegLocation: ffmpegPath,
+      output: path.join(uploadsDir, 'url-%(id)s.%(ext)s'),
+      restrictFilenames: true,
+      print: 'after_move:filepath'
+    }));
   } catch (error) {
-    throw new Error('This public video could not be downloaded. Instagram may require login or block this Reel. Download the Reel in Instagram and upload the MP4 instead.');
+    console.warn('yt-dlp merged download failed, trying simple download:', error.message);
+    try {
+      downloaderOutput = String(await youtubedl(sourceUrl, {
+        noPlaylist: true,
+        noWarnings: true,
+        format: 'best',
+        output: path.join(uploadsDir, 'url-%(id)s.%(ext)s'),
+        restrictFilenames: true,
+        print: 'after_move:filepath'
+      }));
+    } catch (e) {
+      throw new Error('This public video could not be downloaded. Instagram or YouTube may require login. Download the Reel and upload the MP4 file instead.');
+    }
   }
+
   const outputPath = downloaderOutput.split(/\r?\n/).map((line) => line.trim()).reverse().find((line) => line && path.isAbsolute(line));
   const candidates = await Promise.all((await fs.readdir(uploadsDir)).filter((name) => /\.(mp4|mov|webm|mkv)$/i.test(name)).map(async (name) => ({ name, stat: await fs.stat(path.join(uploadsDir, name)) })));
   const printedName = outputPath && path.basename(outputPath);
