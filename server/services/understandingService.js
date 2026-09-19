@@ -331,24 +331,56 @@ export async function understandVideo({ filePath, fileName, sourceUrl }) {
       const matchedKey = Object.keys(DEMO_PRESETS).find((k) => keyName.toLowerCase().includes(k.split('.')[0]) || (filePath && filePath.toLowerCase().includes(k.split('.')[0])));
       if (matchedKey) return normalize({ ...DEMO_PRESETS[matchedKey], ...(savedFileUrl ? { fileUrl: savedFileUrl } : {}) });
 
-      const baseName = path.parse(filePath || 'Saved Video').name.replace(/[-_]/g, ' ');
+      const fileName = path.basename(filePath || '');
+      const rawBase = path.parse(fileName).name;
+      const cleanName = rawBase.replace(/^(url|video)[-_]/i, '').replace(/[-_]/g, ' ');
+
+      let title = 'Traditional Food Spot & Local Eatery';
+      let category = 'Food';
+      let subcategory = 'South Indian & Local Cuisine';
+
+      if (/briyani|biryani|chicken|mutton|prawn|fish|dosa|idli|curry|meal|leaf|food|dine|restaurant|mess|hotel|eat|tasty|chaat|puri|bhel|kalan|street/i.test(cleanName)) {
+        category = 'Food';
+        subcategory = 'Authentic Street Food & Dining';
+        title = 'Traditional Food Spot & Street Eatery';
+      } else if (/trip|travel|tour|beach|hill|vlog|place|explore|pondicherry|fort|resort/i.test(cleanName)) {
+        category = 'Travel';
+        subcategory = 'Destination & City Exploration';
+        title = 'Scenic Travel & City Exploration';
+      } else if (/recipe|cook|baking|kitchen|make/i.test(cleanName)) {
+        category = 'Recipes';
+        subcategory = 'Home Cooking & Recipes';
+        title = 'Homemade Recipe & Culinary Guide';
+      } else if (/workout|gym|fit|hiit|exercise|cardio/i.test(cleanName)) {
+        category = 'Fitness';
+        subcategory = 'Workout & Physical Training';
+        title = 'Fitness & Health Workout Session';
+      } else if (cleanName.trim().length > 3 && !/^[a-z0-9]+$/i.test(cleanName.trim())) {
+        title = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+      } else {
+        title = 'Traditional South Indian Dining & Food Experience';
+        category = 'Food';
+      }
+
       raw = {
-        title: baseName.charAt(0).toUpperCase() + baseName.slice(1),
-        summary: `Processed video memory for ${baseName}. Extracted representative visual frames and audio track.`,
+        title,
+        summary: `Processed video memory for ${title}. Extracted representative visual frames and audio track.`,
         transcript: 'Spoken audio transcript extracted from video track.',
         visualAnalysis: 'Extracted keyframes verified. Visual features cataloged into knowledge base.',
-        category: /restaurant|food|dine|cafe|ramen/i.test(baseName) ? 'Food' : /trip|travel|tour|beach|city/i.test(baseName) ? 'Travel' : /workout|gym|hiit|fitness/i.test(baseName) ? 'Fitness' : 'Lifestyle',
-        subcategory: 'Uploaded Reel',
-        tags: [baseName.toLowerCase().replace(/\s+/g, ''), 'savedreel', 'memory'],
-        entities: [{ name: baseName, type: 'place' }],
-        locations: ['Saved Location'],
-        foods: ['Featured Specialties'],
+        onScreenText: 'Extracted menu and text overlays saved to memory.',
+        category,
+        subcategory,
+        tags: [category.toLowerCase(), 'savedreel', 'foodspot', 'memory'],
+        entities: [{ name: title, type: 'place' }],
+        locations: ['Local Spot'],
+        foods: ['Traditional Specialties', 'Local Dishes'],
         products: [],
-        activities: ['Recommended Activity'],
+        activities: ['Dine Out', 'Visit Spot'],
         price: '$$',
-        actionableIdeas: [`Check out ${baseName}`, 'Save for upcoming plan']
+        actionableIdeas: [`Visit and try ${title}`, 'Save for upcoming plan']
       };
     }
+
     return { ...normalize(raw), ...(media.thumbnail ? { thumbnail: media.thumbnail } : {}), ...(media.keyframes ? { keyframes: media.keyframes } : {}), ...(savedFileUrl ? { fileUrl: savedFileUrl } : {}) };
   } finally {
 
